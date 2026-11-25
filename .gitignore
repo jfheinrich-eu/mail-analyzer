@@ -52,3 +52,6 @@ htmlcov/
 # Token cache
 
 data/token_cache.bin
+
+# egg-info
+*.egg-info/
