@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mail-analyzer"
+version = "0.1.0"
+description = "Read-only Outlook Mailbox Analyzer"
+readme = "README.md"
+requires-python = ">=3.12"
+
+dependencies = [
+    "click==8.1.8",
+    "msal==1.31.1",
+    "requests==2.32.3",
+    "sqlalchemy==2.0.36",
+    "python-dotenv==1.0.1",
+    "typer==0.15.1",
+    "jinja2==3.1.5",
+    "pandas==2.2.3"
+]
+
+[project.optional-dependencies]
+
+dev = [
+    "pytest==8.3.4",
+    "pytest-mock==3.14.0",
+    "black==24.10.0",
+    "ruff==0.8.4",
+    "mypy==1.14.1"
+]
+
+[project.scripts]
+
+mail-analyzer = "mail_analyzer.cli:app"

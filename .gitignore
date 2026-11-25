@@ -1,0 +1,54 @@
+# Python
+
+__pycache__/
+*.py[cod]
+*.pyo
+
+# venv
+
+.venv/
+venv/
+
+# IDE
+
+.idea/
+.vscode/
+
+# Local data
+
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
+# Logs
+
+logs/*.log
+
+# Reports
+
+reports/*.html
+
+# Coverage
+
+.coverage
+htmlcov/
+
+# Mypy
+
+.mypy_cache/
+
+# Ruff
+
+.ruff_cache/
+
+# Pytest
+
+.pytest_cache/
+
+# Environment
+
+.env
+
+# Token cache
+
+data/token_cache.bin
