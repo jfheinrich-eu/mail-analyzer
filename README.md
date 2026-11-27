@@ -10,15 +10,24 @@ Read-only Outlook Mailbox Analysis.
 
 Early Development
 
+Only the `health` command is currently implemented. Outlook authentication and mailbox analysis are not available yet.
+
 ## Security
 
-The application only requires:
+Currently, the application implements only the `health` command; it does not authenticate to Outlook or access mailbox data.
 
-- User.Read
-- Mail.Read
-- offline_access
+No software can guarantee that access will never be compromised. Before mailbox access is implemented, it must use defense-in-depth controls:
 
-No mail modification permissions.
+- Request only delegated read-only Microsoft Graph scopes:
+  - User.Read
+  - Mail.Read
+  - offline_access
+- Protect any persistent token cache with operating-system access controls; never log or commit tokens, credentials, or mailbox content.
+- Use HTTPS with certificate validation, fixed trusted Graph endpoints, request timeouts, and response-size limits.
+- Treat messages, attachments, filenames, and API responses as untrusted; validate inputs and never execute attachments.
+- Use parameterized database queries and safely escape rendered report content.
+
+These controls reduce risk but cannot eliminate compromise. They are requirements for future mailbox functionality, not claims that unimplemented access paths are already protected. The CI workflow blocks on Bandit source scans and `pip-audit` vulnerability checks against the resolved runtime, development, and build-tool dependency set.
 
 ## Development
 

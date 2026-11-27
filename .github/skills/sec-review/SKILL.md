@@ -26,6 +26,15 @@ Cover relevant risks, including:
 
 Do not expose secret or personal-data values. Use safe read-only checks where available. Do not modify files.
 
+## Mandatory security scanners
+
+- Run `python -m bandit -r src` for source-code security analysis.
+- In a clean isolated environment, upgrade pip to the version pinned in CI and install `.[dev]`.
+- Export the resolved environment with `python -m pip freeze --all --exclude-editable > /tmp/mail-analyzer-audit-requirements.txt`.
+- Run `python -m pip_audit --strict --requirement /tmp/mail-analyzer-audit-requirements.txt` to check runtime, development, and build-tool dependencies for known vulnerabilities.
+- Treat scanner findings, execution errors, or inability to reach the advisory database as blocking review results. Do not suppress findings without an explicit, documented risk acceptance.
+- Verify that the GitHub Actions workflow runs both scanners as required steps and grants only the permissions it needs.
+
 ## Output
 
 Report actionable findings by P0 through P3 severity with exact file and line, scenario, impact, and concrete remediation. Include a CWE when applicable. Then list trust boundaries, checks performed and omitted, and residual risks. If there are no findings, say so and identify untested attack surfaces.
