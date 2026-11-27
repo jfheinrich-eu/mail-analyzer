@@ -22,7 +22,7 @@ jobs:
 
       - run: pip install -e ".[dev]"
 
-      - run: pytest
+      - run: python -m pytest
 
       - run: ruff check .
 

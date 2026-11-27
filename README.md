@@ -19,5 +19,6 @@ No mail modification permissions.
 ## Development
 
 ```bash
-pip install -e ".[dev]"
+python -m pip install -e ".[dev]"
+python -m pytest
 ```
