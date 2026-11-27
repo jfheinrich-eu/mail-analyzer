@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-
 from logging.handlers import (
     RotatingFileHandler,
 )
@@ -14,10 +13,7 @@ from mail_analyzer.config import (
 def setup_logging() -> None:
 
     formatter = logging.Formatter(
-        "%(asctime)s "
-        "%(levelname)s "
-        "%(name)s "
-        "%(message)s"
+        "%(asctime)s " "%(levelname)s " "%(name)s " "%(message)s"
     )
 
     app_handler = RotatingFileHandler(
@@ -27,16 +23,10 @@ def setup_logging() -> None:
         encoding="utf-8",
     )
 
-    app_handler.setFormatter(
-        formatter
-    )
+    app_handler.setFormatter(formatter)
 
     root_logger = logging.getLogger()
 
-    root_logger.setLevel(
-        logging.INFO
-    )
+    root_logger.setLevel(logging.INFO)
 
-    root_logger.addHandler(
-        app_handler
-    )
+    root_logger.addHandler(app_handler)

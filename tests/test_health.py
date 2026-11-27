@@ -1,6 +1,7 @@
+from typer.testing import CliRunner
+
 from mail_analyzer import __version__
 from mail_analyzer.cli import app
-from typer.testing import CliRunner
 
 
 def test_version():

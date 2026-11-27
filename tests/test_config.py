@@ -9,15 +9,9 @@ from mail_analyzer.config import (
 def test_load_settings_success(
     monkeypatch,
 ):
-    monkeypatch.setenv(
-        "CLIENT_ID",
-        "client"
-    )
+    monkeypatch.setenv("CLIENT_ID", "client")
 
-    monkeypatch.setenv(
-        "TENANT_ID",
-        "tenant"
-    )
+    monkeypatch.setenv("TENANT_ID", "tenant")
 
     settings = load_settings()
 
@@ -28,17 +22,9 @@ def test_load_settings_success(
 def test_missing_client_id(
     monkeypatch,
 ):
-    monkeypatch.delenv(
-        "CLIENT_ID",
-        raising=False
-    )
+    monkeypatch.delenv("CLIENT_ID", raising=False)
 
-    monkeypatch.setenv(
-        "TENANT_ID",
-        "tenant"
-    )
+    monkeypatch.setenv("TENANT_ID", "tenant")
 
-    with pytest.raises(
-        ConfigurationError
-    ):
+    with pytest.raises(ConfigurationError):
         load_settings()

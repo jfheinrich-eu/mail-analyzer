@@ -4,7 +4,6 @@ from typer.testing import (
 
 from mail_analyzer.cli import app
 
-
 runner = CliRunner()
 
 
@@ -16,7 +15,4 @@ def test_health():
 
     assert result.exit_code == 0
 
-    assert (
-        "Status: OK"
-        in result.stdout
-    )
+    assert "Status: OK" in result.stdout
