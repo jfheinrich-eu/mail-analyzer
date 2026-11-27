@@ -1,0 +1,63 @@
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/workflows/**/*
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/dependabot.yaml
+          - pyproject.toml
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+
+develop:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/skills/**/*
+          - .python-version
+          - pytest.ini
+          - pyproject.toml
+          - ruff.toml
+
+github:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/**/*
+
+git:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .gitignore
+
+labels:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/labeler.yml
+          - .github/workflows/pr-labeler.yml
+
+lint:
+  - changed-files:
+      - any-glob-to-any-file:
+          - pyproject.toml
+          - ruff.toml
+
+python:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .python-version
+          - src/**/*.py
+
+test:
+  - changed-files:
+      - any-glob-to-any-file:
+          - pytest.ini
+          - tests/**/*.py
+
+vscode:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .vscode/**/*
