@@ -23,3 +23,9 @@ jobs:
       - run: pip install -e ".[dev]"
 
       - run: pytest
+
+      - run: ruff check .
+
+      - run: black --check .
+
+      - run: mypy src
