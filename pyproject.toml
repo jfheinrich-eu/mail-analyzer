@@ -27,7 +27,7 @@ dev = [
     "pytest==9.2.0",
     "pytest-mock==3.14.0",
     "black==26.10.1",
-    "ruff==0.8.4",
+    "ruff==0.17.6",
     "mypy==1.14.1",
     "setuptools==84.2.1",
     "bandit==1.9.4",
