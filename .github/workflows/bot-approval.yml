@@ -1,0 +1,230 @@
+name: Bot approval
+
+on:
+  workflow_run:
+    workflows: [CI, CodeQL]
+    types: [completed]
+  pull_request_target:
+    types: [ready_for_review]
+
+permissions:
+  checks: read
+  pull-requests: read
+
+jobs:
+  approve-owner-pull-request:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify pull request and required checks
+        id: gate
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $event = Get-Content -LiteralPath $env:GITHUB_EVENT_PATH -Raw | ConvertFrom-Json
+          $eventName = $env:GITHUB_EVENT_NAME
+          $pullRequestNumber = $null
+          $workflowSha = $null
+
+          if ($eventName -eq 'pull_request_target') {
+            $pullRequestNumber = $event.pull_request.number
+            Write-Output "Event: ready_for_review; PR #$pullRequestNumber"
+          }
+          elseif ($eventName -eq 'workflow_run') {
+            $pullRequests = @($event.workflow_run.pull_requests | Where-Object { $null -ne $_ })
+            if ($pullRequests.Count -ne 1) {
+              Write-Output 'eligible=false' >> $env:GITHUB_OUTPUT
+              Write-Output "Expected exactly one associated PR, found $($pullRequests.Count)."
+              exit 0
+            }
+            $pullRequestNumber = $pullRequests[0].number
+            $workflowSha = $event.workflow_run.head_sha
+            Write-Output "Event: workflow_run; PR #$pullRequestNumber"
+          }
+          else {
+            throw "Unsupported event: $eventName"
+          }
+
+          $pullRequest = gh api "repos/$env:GITHUB_REPOSITORY/pulls/$pullRequestNumber" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to load pull request.' }
+
+          $pullRequestHeadSha = $pullRequest.head.sha
+          $ownerMatches = $pullRequest.user.login -eq 'jfheinrich'
+          $notDraft = -not $pullRequest.draft
+          $sameRepository = $pullRequest.head.repo.full_name -eq $env:GITHUB_REPOSITORY
+          $isOpen = $pullRequest.state -eq 'open'
+          $isCurrentRun = $eventName -eq 'pull_request_target' -or
+            $workflowSha -eq $pullRequestHeadSha -or
+            $workflowSha -eq $pullRequest.merge_commit_sha
+
+          Write-Output "Eligibility: owner=$ownerMatches, nonDraft=$notDraft, sameRepository=$sameRepository, open=$isOpen, currentRun=$isCurrentRun"
+          $isEligible = $ownerMatches -and $notDraft -and $sameRepository -and $isOpen -and $isCurrentRun
+          if (-not $isEligible) {
+            Write-Output 'eligible=false' >> $env:GITHUB_OUTPUT
+            Write-Output 'PR is not eligible for automated approval.'
+            exit 0
+          }
+
+          $changedFiles = @(
+            gh api "repos/$env:GITHUB_REPOSITORY/pulls/$pullRequestNumber/files?per_page=100" |
+              ConvertFrom-Json
+          )
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to load pull request files.' }
+
+          if ($changedFiles.Count -ge 100) {
+            Write-Output 'eligible=false' >> $env:GITHUB_OUTPUT
+            Write-Output 'PR has 100 or more changed files; skipping automated approval.'
+            exit 0
+          }
+
+          $workflowChanges = @(
+            $changedFiles |
+              Where-Object {
+                $_.filename -like '.github/workflows/*' -or
+                $_.previous_filename -like '.github/workflows/*'
+              }
+          )
+          if ($workflowChanges.Count -gt 0) {
+            Write-Output 'eligible=false' >> $env:GITHUB_OUTPUT
+            Write-Output 'PR changes workflow files; skipping automated approval.'
+            exit 0
+          }
+
+          $requiredChecks = @(
+            @{ name = 'test'; app = 'github-actions' }
+            @{ name = 'Analyze (actions)'; app = 'github-actions' }
+            @{ name = 'Analyze (python)'; app = 'github-actions' }
+            @{ name = 'CodeQL'; app = 'github-advanced-security' }
+          )
+          $successful = $false
+
+          foreach ($attempt in 1..6) {
+            $response = gh api -H 'Accept: application/vnd.github+json' `
+              "repos/$env:GITHUB_REPOSITORY/commits/$pullRequestHeadSha/check-runs?per_page=100" |
+              ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0) { throw 'Unable to load check runs.' }
+
+            if ($response.total_count -gt $response.check_runs.Count) {
+              Write-Output 'eligible=false' >> $env:GITHUB_OUTPUT
+              Write-Output 'More than 100 check runs exist; skipping automated approval.'
+              exit 0
+            }
+
+            $latestCheckRuns = @(
+              $response.check_runs |
+                Group-Object { '{0}:{1}' -f $_.app.slug, $_.name } |
+                ForEach-Object { $_.Group | Sort-Object started_at -Descending | Select-Object -First 1 }
+            )
+            $failed = @(
+              foreach ($requiredCheck in $requiredChecks) {
+                $checkRun = $latestCheckRuns |
+                  Where-Object {
+                    $_.name -eq $requiredCheck.name -and
+                    $_.app.slug -eq $requiredCheck.app
+                  } |
+                  Select-Object -First 1
+
+                if ($null -ne $checkRun -and
+                    $checkRun.status -eq 'completed' -and
+                    $checkRun.conclusion -ne 'success') {
+                  '{0} ({1})' -f $requiredCheck.name, $requiredCheck.app
+                }
+              }
+            )
+
+            if ($failed.Count -gt 0) {
+              throw "A required check failed: $($failed -join ', ')"
+            }
+
+            $passedChecks = @(
+              foreach ($requiredCheck in $requiredChecks) {
+                $checkRun = $latestCheckRuns |
+                  Where-Object {
+                    $_.name -eq $requiredCheck.name -and
+                    $_.app.slug -eq $requiredCheck.app
+                  } |
+                  Select-Object -First 1
+
+                if ($null -ne $checkRun -and
+                    $checkRun.status -eq 'completed' -and
+                    $checkRun.conclusion -eq 'success') {
+                  '{0}:{1}' -f $requiredCheck.app, $requiredCheck.name
+                }
+              }
+            )
+            $missingChecks = @(
+              $requiredChecks |
+                Where-Object {
+                  ('{0}:{1}' -f $_.app, $_.name) -notin $passedChecks
+                }
+            )
+
+            if ($missingChecks.Count -eq 0) {
+              $successful = $true
+              break
+            }
+
+            if ($attempt -lt 6) {
+              Start-Sleep -Seconds 10
+            }
+          }
+
+          if (-not $successful) {
+            Write-Output 'eligible=false' >> $env:GITHUB_OUTPUT
+            Write-Output 'Not all required checks completed successfully during the polling window.'
+            exit 0
+          }
+
+          Write-Output 'eligible=true' >> $env:GITHUB_OUTPUT
+          Write-Output "pull_request_number=$pullRequestNumber" >> $env:GITHUB_OUTPUT
+          Write-Output "head_sha=$pullRequestHeadSha" >> $env:GITHUB_OUTPUT
+
+      - name: Approve pull request as jfheinrich-bot
+        if: steps.gate.outputs.eligible == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.BOT_REVIEW_TOKEN }}
+          HEAD_SHA: ${{ steps.gate.outputs.head_sha }}
+          PULL_REQUEST_NUMBER: ${{ steps.gate.outputs.pull_request_number }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN)) {
+            throw 'The BOT_REVIEW_TOKEN repository or organization secret is not configured.'
+          }
+
+          $reviews = @(
+            gh api --paginate "repos/$env:GITHUB_REPOSITORY/pulls/$env:PULL_REQUEST_NUMBER/reviews" |
+              ConvertFrom-Json
+          )
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to load pull request reviews.' }
+
+          $reviewBot = gh api user --jq '.login'
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to verify review bot identity.' }
+          if ($reviewBot -ne 'jfheinrich-bot') {
+            throw 'BOT_REVIEW_TOKEN must authenticate as jfheinrich-bot.'
+          }
+
+          $alreadyApproved = @(
+            $reviews |
+              Where-Object {
+                $_.user.login -eq 'jfheinrich-bot' -and
+                $_.state -eq 'APPROVED' -and
+                $_.commit_id -eq $env:HEAD_SHA
+              }
+          ).Count -gt 0
+
+          if ($alreadyApproved) {
+            Write-Output 'jfheinrich-bot already approved the current head commit.'
+            exit 0
+          }
+
+          $body = @{
+            body = 'Automated approval after all required checks completed successfully.'
+            commit_id = $env:HEAD_SHA
+            event = 'APPROVE'
+          } | ConvertTo-Json
+
+          $body | gh api --method POST `
+            -H 'Accept: application/vnd.github+json' `
+            "repos/$env:GITHUB_REPOSITORY/pulls/$env:PULL_REQUEST_NUMBER/reviews" `
+            --input -
